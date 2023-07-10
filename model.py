@@ -1,3 +1,5 @@
+# https://www.youtube.com/watch?v=ISNdQcPhsts&ab_channel=UmarJamil
+
 import torch
 import torch.nn as nn
 import math
@@ -27,7 +29,6 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         # create a matrix of shape (seq_len, d_model)
-        # https://www.youtube.com/watch?v=ISNdQcPhsts&ab_channel=UmarJamil
         pe = torch.zeros(seq_len, d_model)
 
         # PE(pos, 2i) = sin( pos / 10000^(2i/d_model) )
