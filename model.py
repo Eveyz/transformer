@@ -1,4 +1,5 @@
 # https://www.youtube.com/watch?v=ISNdQcPhsts&ab_channel=UmarJamil
+# https://zhuanlan.zhihu.com/p/368920094
 
 import torch
 import torch.nn as nn
@@ -48,7 +49,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False)
         return self.dropout(x)
-    
+
 class LayerNormalization(nn.Module):
 
     # item 1 / item 2 / item 3
