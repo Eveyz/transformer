@@ -3,6 +3,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 
+def causal_mask(size):
+	mask = torch.triu()
+
 class BilingualDataset(Dataset):
 	
 	def __init__(self, ds, tokenizer_src, tokenizer_tgt, src_lang, tgt_lang, seq_len) -> None:
@@ -26,3 +29,49 @@ class BilingualDataset(Dataset):
 		src_text = src_target_pair['translation'][self.src_lang]
 		tgt_text = src_target_pair['translation'][self.tgt_lang]
 		
+		# sentence will be splited into words, and each word will be mapped into id in the vocab
+		enc_input_tokens = self.tokenizer_src.encode(src_text).ids # [1, 456, 890, ...]
+		dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids # [1, 456, 890, ...]
+
+		# add padding token to make all the sentence as the same length
+		enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2 # sos, eos
+		dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1 # sos
+
+		if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
+			raise ValueError('Sentence is too long')
+		
+		# Add sos, eos, pad to the input
+		encode_input = torch.cat([
+			self.sos_token,
+			torch.tensor(enc_input_tokens, dtype=torch.int64),
+			self.eos_token,
+			torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64)
+		])
+
+		# Add sos to the decoder input
+		decode_input = torch.cat([
+			self.sos_token,
+			torch.tensor(dec_input_tokens, dtype=torch.int64),
+			torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
+		])
+
+		# Add eos to the label (what we expect as output from the decoder)
+		label = torch.cat([
+			torch.tensor(dec_input_tokens, dtype=torch.int64),
+			self.eos_token,
+			torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
+		])
+
+		assert encode_input.size(0) == self.seq_len
+		assert decode_input.size(0) == self.seq_len
+		assert label.size(0) == self.seq_len
+
+		# the mask is to hide the pad token in the self attention step
+
+		return {
+			"encoder_input": encode_input, # seq_len
+			"decoder_input": decode_input, # seq_len
+			"encoder_mask": (encode_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, seq_len)
+			"decoder_mask": (decode_input != self.pad_token).unsqueeze(0).unsqueeze(0).int() & causal_mask(decode_input.size(0)) # (1, seq_len) & (1, 1, seq_len),
+
+		}
